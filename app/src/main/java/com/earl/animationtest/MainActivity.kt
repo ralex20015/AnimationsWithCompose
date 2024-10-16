@@ -1,18 +1,16 @@
 package com.earl.animationtest
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateInt
 import androidx.compose.animation.core.animateIntOffset
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +22,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.constraintlayout.compose.ConstraintLayout
 import com.earl.animationtest.ui.theme.AnimationTestTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -74,7 +77,7 @@ enum class BoxState {
 //    }
 //}
 //val easing = PathEasing(path)
-
+//Al contenedor de le aplican dos cambios
 @Composable
 fun MainContent(modifier: Modifier = Modifier) {
     val coroutineScope = rememberCoroutineScope()
@@ -82,6 +85,7 @@ fun MainContent(modifier: Modifier = Modifier) {
     val fadedAnimationTime = 500
     val totalTime = animationTime + fadedAnimationTime
     var fadeOutAppBar by remember { mutableStateOf(true) }
+    var fadeInAppBar by remember { mutableStateOf(false) }
     //Puedo tener mil estados
     var currentState by remember { mutableStateOf(BoxState.Inactive) }
     //Tu Cuenta Transition
@@ -94,11 +98,18 @@ fun MainContent(modifier: Modifier = Modifier) {
     LaunchedEffect(currentState) {
         if (currentState == BoxState.GoingUp) {
             coroutineScope.launch {
-                delay(1000)
+                delay(600)
                 fadeOutAppBar = false
+                delay(400)
+                fadeInAppBar = true
             }
         } else {
-            fadeOutAppBar = true
+            coroutineScope.launch {
+                delay(600)
+                fadeInAppBar = false
+                delay(400)
+                fadeOutAppBar = true
+            }
         }
     }
 
@@ -143,40 +154,46 @@ fun MainContent(modifier: Modifier = Modifier) {
     //Animatable with  animateTo() called in with different timings
     // (using suspend functions)
 
-    Column(modifier = modifier) {
-        //Despues de 1 segundo este va a comenzar a desvanecerse
-        Row(
+    ConstraintLayout(modifier = modifier) {
+        val (appbarRef, yourAccountRef, textAmountRef, btnRef) = createRefs()
+        //El contenedor es el que cambiaria el background
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(30.dp)
-                .background(Color(0xFF0066DD)),
-            horizontalArrangement = Arrangement.Start
+                .constrainAs(appbarRef) {
+                    top.linkTo(parent.top)
+                    start.linkTo(parent.start)
+                },
         ) {
             AnimatedVisibility(
                 visible = fadeOutAppBar,
                 modifier = Modifier.fillMaxSize(),
-                exit = fadeOut(animationSpec = tween(500, easing = LinearEasing))
+                enter = fadeIn(animationSpec = tween(400, easing = LinearEasing)),
+                exit = fadeOut(animationSpec = tween(400, easing = LinearEasing))
             ) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Text(
-                        text = "SomeText",
-                        textAlign = TextAlign.Start,
-                        color = Color.White,
-                        modifier = Modifier
-                            .align(Alignment.CenterVertically)
-                    )
-                }
+//                .background(if(!fadeOutAppBar) Color(0xFF0066DD) else Color.White)
+                AppBar1()
+            }
+            AnimatedVisibility(
+                visible = fadeInAppBar,
+                modifier = Modifier.fillMaxSize(),
+                enter = fadeIn(animationSpec = tween(400, easing = LinearEasing)),
+                exit = fadeOut(animationSpec = tween(400, easing = LinearEasing))
+            ) {
+//                .background(if(!fadeOutAppBar) Color(0xFF0066DD) else Color.White)
+                AppBar2()
             }
         }
-
-
-
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(totalHeight)
-                .background(Color.Red)
+                .constrainAs(yourAccountRef) {
+                    top.linkTo(appbarRef.bottom)
+                    start.linkTo(parent.start)
+                }
         ) {
             //Cuando llegue ahi el otro texto va a empezar a desaparecer
             Text(
@@ -193,6 +210,10 @@ fun MainContent(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(totalHeight)
+                .constrainAs(textAmountRef) {
+                    top.linkTo(yourAccountRef.bottom)
+                    start.linkTo(parent.start)
+                }
         ) {
 
             Text(
@@ -205,20 +226,54 @@ fun MainContent(modifier: Modifier = Modifier) {
 
         Button(onClick = {
             currentState = when (currentState) {
-                BoxState.Inactive -> {
-                    Log.d("MainActivity", "Change the state to Expanded")
-                    BoxState.GoingUp
-                }
-
-                BoxState.GoingUp -> {
-                    Log.d("MainActivity", "Change the state to Collapsed")
-                    BoxState.Inactive
-                }
+                BoxState.Inactive -> BoxState.GoingUp
+                BoxState.GoingUp -> BoxState.Inactive
             }
-        }, modifier.fillMaxWidth()) {
+        },
+            modifier
+                .fillMaxWidth()
+                .constrainAs(btnRef) {
+                    start.linkTo(parent.start)
+                    top.linkTo(textAmountRef.bottom)
+                }) {
             Text("CLICK ME")
         }
+    }
+}
 
+@Composable
+private fun AppBar1() {
+    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center) {
+        Text(
+            text = "SomeText",
+            textAlign = TextAlign.Center,
+            color = Color.Black,
+            modifier = Modifier
+                .align(Alignment.CenterVertically)
+        )
+    }
+}
+
+@Composable
+private fun AppBar2() {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0066DD)),
+        horizontalArrangement = Arrangement.Start
+    ) {
+//        Text(
+//            text = "SomeText",
+//            textAlign = TextAlign.Center,
+//            color = Color.Black,
+//            modifier = Modifier
+//                .align(Alignment.CenterVertically)
+//        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+            contentDescription = "Back",
+            tint = Color.White
+        )
     }
 }
 
